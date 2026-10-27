@@ -23,6 +23,7 @@ jobs:
           git clone -q --depth 1 https://github.com/arminbiere/kissat.git ks && cd ks && ./configure --compact >/dev/null && make -j4 >/dev/null && cp build/kissat ../k; fi
       - name: run
         run: |
+          cat parts/${{ inputs.tag }}/p* | gunzip > puzzle.cnf; head -3 puzzle.cnf
           N=$(nproc); echo cores $N
           for k in $(seq 0 $((N-1))); do
             s=$(( ${{ matrix.j }}*16 + k + 1 ))
