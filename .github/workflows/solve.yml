@@ -1,0 +1,45 @@
+name: solve
+on:
+  workflow_dispatch:
+    inputs:
+      tag: {description: tag, required: true}
+      limit: {description: seconds, required: false, default: "780"}
+permissions:
+  contents: write
+concurrency: {group: solve-${{ inputs.tag }}}
+jobs:
+  s:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    strategy:
+      fail-fast: false
+      matrix:
+        j: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+    steps:
+      - uses: actions/checkout@v4
+      - name: build
+        run: |
+          if [ -x bin/kissat ]; then cp bin/kissat ./k; else
+          git clone -q --depth 1 https://github.com/arminbiere/kissat.git ks && cd ks && ./configure --compact >/dev/null && make -j4 >/dev/null && cp build/kissat ../k; fi
+      - name: run
+        run: |
+          N=$(nproc); echo cores $N
+          for k in $(seq 0 $((N-1))); do
+            s=$(( ${{ matrix.j }}*16 + k + 1 ))
+            if [ $((k%2)) -eq 0 ]; then opt="--sat"; else opt="--default"; fi
+            ( timeout ${{ inputs.limit }} ./k -q $opt --seed=$s puzzle.cnf > out$k.txt; echo $? > rc$k ) &
+          done
+          while true; do
+            for k in $(seq 0 $((N-1))); do
+              if [ -f rc$k ] && [ "$(cat rc$k)" = "10" ]; then
+                grep '^v' out$k.txt | tr -d 'v' | tr ' ' '\n' | grep -v '^$' > sol.txt
+                git config user.email a@b.c; git config user.name bot
+                git fetch -q origin
+                git checkout -q -B sol-${{ inputs.tag }}
+                git add sol.txt; git commit -qm "sol j${{ matrix.j }} k$k"; git push -qf origin sol-${{ inputs.tag }} && echo SOLVED
+                exit 0
+              fi
+            done
+            n=$(ls rc* 2>/dev/null | wc -l); [ "$n" -ge "$N" ] && exit 1
+            sleep 1
+          done
