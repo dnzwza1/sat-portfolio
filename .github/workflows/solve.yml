@@ -6,7 +6,6 @@ on:
       limit: {description: seconds, required: false, default: "780"}
 permissions:
   contents: write
-concurrency: {group: solve-${{ inputs.tag }}}
 jobs:
   s:
     runs-on: ubuntu-latest
